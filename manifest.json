@@ -4,6 +4,7 @@
   "name": "Flight Tracker",
   "version": "1.0.0",
   "author": "kairos",
+  "license": "MIT",
   "description": "Shows nearby aircraft using free ADS-B data from opendata.adsb.fi",
   "kinds": ["bar-widget"],
   "entryPoints": {
