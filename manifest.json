@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "kairos.flight-tracker",
+  "name": "Flight Tracker",
+  "version": "1.0.0",
+  "author": "kairos",
+  "description": "Shows nearby aircraft using free ADS-B data from opendata.adsb.fi",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Flight Tracker",
+    "description": "Nearest aircraft or nearby aircraft count from opendata.adsb.fi",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 30,
+      "radiusNm": 25,
+      "displayMode": "nearest",
+      "selectionCriterion": "closest"
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 30,
+        "max": 600,
+        "step": 10,
+        "defaultValue": 30,
+        "description": "adsb.fi free tier - kept at 30s minimum."
+      },
+      {
+        "key": "radiusNm",
+        "type": "integer",
+        "label": "Search radius (nautical miles)",
+        "min": 5,
+        "max": 250,
+        "step": 5,
+        "defaultValue": 25
+      },
+      {
+        "key": "displayMode",
+        "type": "enum",
+        "label": "Bar display",
+        "options": ["nearest", "count"],
+        "defaultValue": "nearest",
+        "description": "Show a single aircraft (pick which one via 'Aircraft selection' below) or just a count of aircraft in range."
+      },
+      {
+        "key": "selectionCriterion",
+        "type": "enum",
+        "label": "Aircraft selection",
+        "options": ["closest", "lowest", "highest", "fastest", "slowest"],
+        "defaultValue": "closest",
+        "description": "Which single aircraft to feature in the bar/tooltip when Bar display isn't 'count'. Applies instantly — no extra API calls."
+      }
+    ]
+  }
+}
