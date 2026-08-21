@@ -445,6 +445,7 @@ Panel {
               spacing: Style.space(2)
 
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: root.loading ? "FLIGHT TRACKER (updating...)" : "FLIGHT TRACKER"
                 color: root.bar.foreground
@@ -455,6 +456,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: "Nearby aircraft · adsb.fi"
                 color: Qt.darker(root.bar.foreground, 1.25)
@@ -465,6 +467,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               id: updateStatus
               text: root.dataUpdatedLabel()
               color: Qt.darker(root.bar.foreground, 1.35)
@@ -512,6 +515,7 @@ Panel {
             visible: root.settingsOpen
 
             Text {
+              textFormat: Text.PlainText
               text: "SETTINGS"
               color: Qt.darker(root.bar.foreground, 1.25)
               font.family: root.bar.fontFamily
@@ -524,6 +528,7 @@ Panel {
               spacing: Style.space(8)
 
               Text {
+                textFormat: Text.PlainText
                 width: Style.space(140)
                 text: "Aircraft selection"
                 color: root.bar.foreground
@@ -551,6 +556,7 @@ Panel {
               spacing: Style.space(8)
 
               Text {
+                textFormat: Text.PlainText
                 width: Style.space(140)
                 text: "Bar display"
                 color: root.bar.foreground
@@ -578,6 +584,7 @@ Panel {
               spacing: Style.space(8)
 
               Text {
+                textFormat: Text.PlainText
                 width: Style.space(140)
                 text: "Search radius"
                 color: root.bar.foreground
@@ -603,6 +610,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 width: Style.space(56)
                 text: root.radiusNm + " nm"
                 color: root.bar.foreground
@@ -634,6 +642,7 @@ Panel {
               spacing: Style.space(8)
 
               Text {
+                textFormat: Text.PlainText
                 width: Style.space(140)
                 text: "Refresh interval"
                 color: root.bar.foreground
@@ -659,6 +668,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 width: Style.space(56)
                 text: root.refreshIntervalSec + "s"
                 color: root.bar.foreground
@@ -686,6 +696,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: "Radius & refresh changes apply on the next scheduled update, not immediately — keeps requests within adsb.fi's rate limit."
               color: Qt.darker(root.bar.foreground, 1.25)
@@ -700,6 +711,7 @@ Panel {
             spacing: Style.space(6)
 
             Text {
+              textFormat: Text.PlainText
               text: "LOCATION"
               color: Qt.darker(root.bar.foreground, 1.25)
               font.family: root.bar.fontFamily
@@ -708,6 +720,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: root.locationLabel + (root.manualOverride ? "" : " (IP approx.)")
               color: root.bar.foreground
@@ -718,6 +731,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: root.locationReady ? (root.latitude.toFixed(4) + ", " + root.longitude.toFixed(4)) : "Locating..."
               color: Qt.darker(root.bar.foreground, 1.25)
@@ -726,6 +740,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               text: "Radius: " + root.radiusNm + " nm · Refresh: " + root.refreshIntervalSec + "s"
                   + (root.displayMode !== "count" ? " · Showing: " + root.criterionLabel(root.selectionCriterion) : "")
               color: Qt.darker(root.bar.foreground, 1.25)
@@ -734,6 +749,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               text: "SEARCH ANOTHER CITY"
               color: Qt.darker(root.bar.foreground, 1.25)
               font.family: root.bar.fontFamily
@@ -801,6 +817,7 @@ Panel {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   id: cityResultText
                   width: parent.width
                   text: modelData.display_name || "Unnamed result"
@@ -814,6 +831,7 @@ Panel {
           }
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: root.hasError ? root.errorText : (root.aircraft.length > 0 ? root.aircraft.length + " AIRCRAFT IN RANGE" : "NO AIRCRAFT IN RANGE")
             color: Qt.darker(root.bar.foreground, 1.25)
@@ -841,6 +859,7 @@ Panel {
                   spacing: Style.space(8)
 
                   Text {
+                    textFormat: Text.PlainText
                     id: callsignLabel
                     text: (isSelected ? "★ " : "") + modelData.callsign
                     color: root.bar.foreground
@@ -850,6 +869,7 @@ Panel {
                   }
 
                   Text {
+                    textFormat: Text.PlainText
                     width: parent.width - callsignLabel.width - parent.spacing
                     text: (isFinite(modelData.distNm) ? modelData.distNm.toFixed(1) + " nm" : "Distance unknown") + "  ·  " + modelData.altLabel
                     color: Qt.darker(root.bar.foreground, 1.25)
@@ -861,6 +881,7 @@ Panel {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   text: [
                     modelData.type,
