@@ -126,3 +126,7 @@ the shell if a QML component remains cached:
 ```sh
 omarchy restart shell
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Kairos Technologies.
