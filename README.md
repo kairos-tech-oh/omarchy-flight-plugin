@@ -5,6 +5,8 @@ A bar widget that shows nearby aircraft using free, key-free ADS-B data from
 No feeder hardware, account, or API key required — just a live internet
 connection.
 
+![Flight Tracker panel preview](preview.png)
+
 ## Highlights
 
 - Bar label shows one featured aircraft's callsign, or just a count
