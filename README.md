@@ -109,8 +109,10 @@ entry in `~/.config/omarchy/shell.json`.
 ## Dependencies
 
 The plugin shells out to `curl` (present on any standard Omarchy install)
-to talk to adsb.fi, ipwho.is, and Nominatim. No other packages, background
-services, or daemons are required.
+to talk to adsb.fi, ipwho.is, and Nominatim, and to `sh`, `timeout`, and
+`head` — coreutils, already on the system — to put a byte ceiling and a
+deadline on each of those responses. No other packages, background services,
+or daemons are required.
 
 ## Development
 
