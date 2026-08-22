@@ -34,6 +34,16 @@ Panel {
   property real lastUpdatedMs: 0
   property real statusClockMs: Date.now()
 
+  // Byte ceilings for each network response, sized from measured replies so a
+  // legitimate one is never truncated. At the 250 nm maximum radius adsb.fi
+  // returned 299 KiB over New York, 247 KiB over Chicago, 246 KiB over Los
+  // Angeles, 111 KiB over London; 1 MiB leaves better than 3x headroom over
+  // the busiest of those and is still a hard bound on what the shell holds.
+  // ipwho.is returned 963 bytes and Nominatim 3.0 KiB at limit=5.
+  readonly property int locationCapBytes: 65536
+  readonly property int flightsCapBytes: 1048576
+  readonly property int citySearchCapBytes: 65536
+
   readonly property int refreshIntervalSec: Math.max(30, parseInt(setting("refreshIntervalSec", 30), 10) || 30)
   readonly property int radiusNm: Math.min(250, Math.max(1, parseInt(setting("radiusNm", 25), 10) || 25))
   readonly property string displayMode: setting("displayMode", "nearest")
@@ -132,8 +142,44 @@ Panel {
     }
   }
 
+  // Every network producer is built here. Both bounds are external to the QML
+  // side on purpose: StdioCollector retains the whole of stdout before
+  // onStreamFinished ever runs, so a size check up there is too late to bound
+  // anything -- the memory is already committed inside omarchy-shell.
+  //
+  //   head -c   closes the pipe at the byte ceiling, at the producer
+  //   timeout   is the deadline that still applies while curl is blocked in a
+  //             syscall; curl's own --max-time is the inner limit
+  //
+  // cap+1 bytes are requested so a body sitting exactly at the ceiling stays
+  // distinguishable from one that got cut off. The URL and every curl option
+  // travel as argv entries -- nothing is ever spliced into the script text.
+  function cappedCurl(url, capBytes, maxTimeSec, extraArgs) {
+    var innerSec = Math.max(1, Math.round(maxTimeSec))
+    var deadlineSec = Math.max(1, innerSec + 5)
+    var command = ["timeout", "-k", "2", String(deadlineSec),
+                   "sh", "-c", 'cap="$1"; shift; curl "$@" | head -c "$cap"', "sh",
+                   String(capBytes + 1),
+                   "-fsSL", "--max-time", String(innerSec)]
+    if (extraArgs) command = command.concat(extraArgs)
+    return command.concat(["--", String(url)])
+  }
+
+  // curl's exit status does not survive that pipeline -- head exits 0 whether
+  // curl succeeded, 404'd, or was killed at the deadline -- so a blank body is
+  // what tells us the producer failed, and onExited alone cannot be trusted to
+  // report it. The length check is a secondary guard only: String.length counts
+  // UTF-16 units rather than bytes, and head -c is the bound that actually
+  // holds.
+  function parseCappedJson(raw, capBytes) {
+    var text = String(raw || "")
+    if (text.trim() === "") throw new Error("empty response")
+    if (text.length > capBytes) throw new Error("response exceeded " + capBytes + " bytes")
+    return JSON.parse(text)
+  }
+
   function parseAircraftList(raw) {
-    var response = JSON.parse(String(raw || "{}"))
+    var response = root.parseCappedJson(raw, root.flightsCapBytes)
     var list = response.ac || []
     var result = []
     for (var i = 0; i < list.length; i++) result.push(parseAircraft(list[i]))
@@ -204,8 +250,9 @@ Panel {
     if (root.loading || !root.locationReady) return
     root.loading = true
     root.hasError = false
-    flightsProcess.command = ["curl", "-fsSL", "--max-time", "15",
-      "https://opendata.adsb.fi/api/v3/lat/" + root.latitude + "/lon/" + root.longitude + "/dist/" + root.radiusNm]
+    flightsProcess.command = root.cappedCurl(
+      "https://opendata.adsb.fi/api/v3/lat/" + root.latitude + "/lon/" + root.longitude + "/dist/" + root.radiusNm,
+      root.flightsCapBytes, 15)
     flightsProcess.running = true
   }
 
@@ -219,7 +266,9 @@ Panel {
     if (query === "" || citySearchProcess.running) return
     root.searchingCity = true
     root.cityResults = []
-    citySearchProcess.command = ["curl", "-fsSL", "--max-time", "20", "-A", "Flight-Tracker/1.0", "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=" + encodeURIComponent(query)]
+    citySearchProcess.command = root.cappedCurl(
+      "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=" + encodeURIComponent(query),
+      root.citySearchCapBytes, 20, ["-A", "Flight-Tracker/1.0"])
     citySearchProcess.running = true
   }
 
@@ -292,12 +341,12 @@ Panel {
 
   Process {
     id: locationProcess
-    command: ["curl", "-fsSL", "--max-time", "15", "https://ipwho.is/"]
+    command: root.cappedCurl("https://ipwho.is/", root.locationCapBytes, 15)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
         try {
-          var location = JSON.parse(text)
+          var location = root.parseCappedJson(text, root.locationCapBytes)
           if (!location.success || !isFinite(Number(location.latitude)) || !isFinite(Number(location.longitude))) throw new Error("location unavailable")
           root.latitude = Number(location.latitude)
           root.longitude = Number(location.longitude)
@@ -349,7 +398,7 @@ Panel {
       waitForEnd: true
       onStreamFinished: {
         try {
-          var results = JSON.parse(text)
+          var results = root.parseCappedJson(text, root.citySearchCapBytes)
           root.cityResults = Array.isArray(results) ? results : []
           root.hasError = false
         } catch (error) {
