@@ -95,7 +95,11 @@ Panel {
   // longer strings were visibly wider once painted than what got measured,
   // overlapping the next widget. Full detail (altitude, speed, etc.) lives
   // in the popup instead.
-  readonly property string label: {
+  readonly property string label: root.barSafe(root.labelSource)
+  readonly property string tooltip: root.barSafe(root.tooltipSource)
+
+  // Internal, pre-sanitisation. Never hand these to a first-party component.
+  readonly property string labelSource: {
     if (root.displayMode === "track") return root.trackCallsign !== "" ? root.trackCallsign : "FLT --"
     if (root.hasError) return "FLT --"
     if (root.displayMode === "count") return "FLT " + root.aircraft.length
@@ -103,7 +107,7 @@ Panel {
     return root.selectedAircraft.callsign
   }
 
-  readonly property string tooltip: {
+  readonly property string tooltipSource: {
     if (root.displayMode === "track") return root.trackTooltip()
     if (root.hasError) return "Flight Tracker: " + root.errorText
     if (!root.locationReady) return "Flight Tracker: locating..."
@@ -170,7 +174,9 @@ Panel {
   }
 
   function parseAircraft(raw) {
-    var callsign = String(raw.flight || "").trim() || raw.r || raw.hex
+    var callsign = root.sanitizeIdentifier(raw.flight, 10)
+        || root.sanitizeIdentifier(raw.r, 10)
+        || root.sanitizeIdentifier(raw.hex, 10)
     var altValue = root.numberOrNaN(raw.alt_baro)
     var altLabel = "Alt unknown"
     var altFt = null
@@ -197,7 +203,7 @@ Panel {
       distance = root.greatCircleNm(root.latitude, root.longitude, latitude, longitude)
 
     return {
-      hex: raw.hex,
+      hex: root.sanitizeIdentifier(raw.hex, 8),
       callsign: callsign,
       altLabel: altLabel,
       altFt: altFt,
@@ -205,10 +211,10 @@ Panel {
       lon: longitude,
       speedKt: isFinite(speed) ? Math.round(speed) : null,
       heading: isFinite(groundTrack) ? groundTrack : (isFinite(trueHeading) ? trueHeading : null),
-      type: raw.desc || raw.t || "",
-      registration: raw.r || "",
+      type: root.sanitizeText(raw.desc, 60) || root.sanitizeText(raw.t, 60),
+      registration: root.sanitizeIdentifier(raw.r, 10),
       distNm: distance,
-      squawk: raw.squawk || ""
+      squawk: root.sanitizeIdentifier(raw.squawk, 4)
     }
   }
 
@@ -218,11 +224,13 @@ Panel {
     var longitude = root.numberOrNaN(raw.longitude)
     if (!isFinite(latitude) || !isFinite(longitude)) return null
     return {
-      code: String(raw.iata_code || raw.icao_code || "???"),
-      icao: String(raw.icao_code || ""),
-      name: String(raw.name || ""),
-      city: String(raw.municipality || ""),
-      country: String(raw.country_name || ""),
+      code: root.sanitizeIdentifier(raw.iata_code, 4)
+          || root.sanitizeIdentifier(raw.icao_code, 4)
+          || "???",
+      icao: root.sanitizeIdentifier(raw.icao_code, 4),
+      name: root.sanitizeText(raw.name, 80),
+      city: root.sanitizeText(raw.municipality, 60),
+      country: root.sanitizeText(raw.country_name, 60),
       lat: latitude,
       lon: longitude
     }
@@ -235,7 +243,7 @@ Panel {
     var origin = root.parseAirport(flightroute.origin)
     var destination = root.parseAirport(flightroute.destination)
     if (!origin || !destination) throw new Error("incomplete route")
-    var airline = flightroute.airline ? String(flightroute.airline.name || "") : ""
+    var airline = flightroute.airline ? root.sanitizeText(flightroute.airline.name, 60) : ""
     return { origin: origin, destination: destination, airline: airline }
   }
 
@@ -248,6 +256,52 @@ Panel {
   // sanitised too.
   function normalizeCallsign(raw) {
     return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 8)
+  }
+
+  // Distinct from normalizeCallsign above, which exists to make a value safe as
+  // a URL *path segment*. This one makes upstream identifiers safe as *text*.
+  // Callsigns, registrations, hex codes and airport codes are all short,
+  // fixed-alphabet identifiers, so they are whitelisted rather than escaped:
+  // whatever an upstream sends, what this plugin carries is [A-Z0-9-] only.
+  // The hyphen is kept because registrations need it (D-AIGW, C-FZXI).
+  // Free text -- aircraft types, airport and airline names, cities -- cannot be
+  // whitelisted to an alphabet without destroying it ("AIRBUS A-330-900",
+  // "Arnavutköy"), so the markup-significant characters are removed instead.
+  // These fields render only in this plugin's own panel, where every Text is
+  // pinned to PlainText, so this is the second layer rather than the first;
+  // it exists so that no network-sourced string is carried around holding
+  // markup, whichever sink a later edit points it at.
+  function sanitizeText(raw, maxLength) {
+    return String(raw === undefined || raw === null ? "" : raw)
+      .replace(/[<>&]/g, " ")
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .substring(0, maxLength)
+      .trim()
+  }
+
+  function sanitizeIdentifier(raw, maxLength) {
+    return String(raw === undefined || raw === null ? "" : raw)
+      .toUpperCase().replace(/[^A-Z0-9-]/g, "").substring(0, maxLength)
+  }
+
+  // omarchy-shell renders a bar widget's label through the Text in
+  // Ui/WidgetButton.qml and its tooltip through the one in plugins/bar/Bar.qml.
+  // Neither sets textFormat, so both are Qt's default Text.AutoText, which
+  // sniffs its input and renders HTML -- including <img src="http://...">,
+  // which performs a network fetch from inside the shell process.
+  //
+  // Pinning Text.PlainText on this plugin's own Text elements cannot cover
+  // that: the Text doing the rendering belongs to the shell, not to the
+  // plugin, and the plugin has no way to set a property on it. So the boundary
+  // itself is the place to neutralise -- every string leaving here for the bar
+  // goes through this, which is why it is applied to `label` and `tooltip`
+  // wholesale rather than to the individual fields that feed them. Anything
+  // added to either of those later is covered without a further edit.
+  function barSafe(text) {
+    return String(text === undefined || text === null ? "" : text)
+      .replace(/[<>&]/g, " ")
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .substring(0, 200)
   }
 
   readonly property real earthRadiusNm: 3440.065

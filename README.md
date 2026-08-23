@@ -137,6 +137,14 @@ tracking a flight; it is looked up once per callsign, not once per refresh,
 because a route doesn't change. Callsigns are reduced to `A-Z0-9`, at most 8
 characters, before they reach any URL.
 
+Every string that arrives from one of these services is also neutralised before
+it is displayed. Short identifiers (callsigns, registrations, airport codes) are
+whitelisted to `A-Z0-9-`; free text (aircraft types, airport and city names) has
+markup-significant characters removed. In addition, the bar label and tooltip are
+sanitised again as they are handed to omarchy-shell, whose own `WidgetButton` and
+tooltip render text with Qt's default `AutoText` — a format that interprets HTML,
+which this plugin cannot switch off from outside.
+
 Location is resolved via `https://ipwho.is/` (automatic) or
 `https://nominatim.openstreetmap.org/` (manual city search). Neither your
 location nor any other data is sent anywhere besides these three services and
