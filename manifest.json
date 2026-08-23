@@ -2,17 +2,17 @@
   "schemaVersion": 1,
   "id": "kairos.flight-tracker",
   "name": "Flight Tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "kairos",
   "license": "MIT",
-  "description": "Shows nearby aircraft using free ADS-B data from opendata.adsb.fi",
+  "description": "Shows nearby aircraft, or tracks one flight's progress between its airports, using free ADS-B data",
   "kinds": ["bar-widget"],
   "entryPoints": {
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
     "displayName": "Flight Tracker",
-    "description": "Nearest aircraft or nearby aircraft count from opendata.adsb.fi",
+    "description": "Nearby aircraft, or one tracked flight's progress, from opendata.adsb.fi",
     "category": "Info",
     "allowMultiple": false,
     "defaultSection": "right",
@@ -20,7 +20,8 @@
       "refreshIntervalSec": 30,
       "radiusNm": 25,
       "displayMode": "nearest",
-      "selectionCriterion": "closest"
+      "selectionCriterion": "closest",
+      "trackCallsign": ""
     },
     "schema": [
       {
@@ -46,9 +47,9 @@
         "key": "displayMode",
         "type": "enum",
         "label": "Bar display",
-        "options": ["nearest", "count"],
+        "options": ["nearest", "count", "track"],
         "defaultValue": "nearest",
-        "description": "Show a single aircraft (pick which one via 'Aircraft selection' below) or just a count of aircraft in range."
+        "description": "Show a single nearby aircraft (pick which one via 'Aircraft selection' below), a count of aircraft in range, or track one specific flight anywhere in the world. Track mode is set up in the widget's panel, where you enter the callsign."
       },
       {
         "key": "selectionCriterion",
@@ -56,7 +57,7 @@
         "label": "Aircraft selection",
         "options": ["closest", "lowest", "highest", "fastest", "slowest"],
         "defaultValue": "closest",
-        "description": "Which single aircraft to feature in the bar/tooltip when Bar display isn't 'count'. Applies instantly — no extra API calls."
+        "description": "Which single aircraft to feature in the bar/tooltip when Bar display is 'nearest'. Applies instantly — no extra API calls."
       }
     ]
   }
