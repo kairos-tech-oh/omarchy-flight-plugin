@@ -69,6 +69,27 @@ Panel {
   readonly property int trackedFlightCapBytes: 65536
   readonly property int routeCapBytes: 65536
 
+  // The four origins this plugin is allowed to talk to -- the same four the
+  // README names. Every URL built below is a literal with only numbers or an
+  // A-Z0-9 callsign spliced into it, so nothing here is chosen by a response
+  // today; the allowlist is enforced in cappedCurl() anyway, so a call site
+  // added later cannot reach a host that was never reviewed. Each entry ends
+  // in "/" on purpose: a prefix test against it fixes the whole authority, so
+  // a lookalike such as https://ipwho.is.evil.example/ cannot match.
+  readonly property var endpointAllowlist: [
+    "https://opendata.adsb.fi/",
+    "https://api.adsbdb.com/",
+    "https://ipwho.is/",
+    "https://nominatim.openstreetmap.org/"
+  ]
+
+  function allowlistedEndpoint(url) {
+    var text = String(url)
+    for (var i = 0; i < root.endpointAllowlist.length; i++)
+      if (text.indexOf(root.endpointAllowlist[i]) === 0) return true
+    return false
+  }
+
   readonly property int refreshIntervalSec: Math.max(30, parseInt(setting("refreshIntervalSec", 30), 10) || 30)
   readonly property int radiusNm: Math.min(250, Math.max(1, parseInt(setting("radiusNm", 25), 10) || 25))
   readonly property string displayMode: setting("displayMode", "nearest")
@@ -415,13 +436,32 @@ Panel {
   // cap+1 bytes are requested so a body sitting exactly at the ceiling stays
   // distinguishable from one that got cut off. The URL and every curl option
   // travel as argv entries -- nothing is ever spliced into the script text.
+  //
+  // The destination is bounded here too, in three ways that only matter once
+  // one of the four services misbehaves:
+  //
+  //   allowlist  the origin has to be one of the four in endpointAllowlist, so
+  //              only a reviewed host is ever contacted
+  //   -fsS       no -L: redirects are not followed at all. With -L, a 3xx from
+  //              any of those services -- compromised, hijacked, or merely
+  //              misconfigured -- would move this curl to whatever Location it
+  //              named, including 127.0.0.1, 169.254.169.254 or an RFC1918
+  //              address, and the allowlist above only ever sees the first hop.
+  //   --proto    the request itself is refused unless it is https, so no other
+  //              scheme can be reached through this helper either.
+  //
+  // A refused origin returns a producer that exits non-zero with empty stdout,
+  // which is exactly the shape a failed fetch already has here -- the caller
+  // falls back to the values it is already showing instead of the plugin
+  // growing a second kind of failure.
   function cappedCurl(url, capBytes, maxTimeSec, extraArgs) {
+    if (!root.allowlistedEndpoint(url)) return ["sh", "-c", "exit 1"]
     var innerSec = Math.max(1, Math.round(maxTimeSec))
     var deadlineSec = Math.max(1, innerSec + 5)
     var command = ["timeout", "-k", "2", String(deadlineSec),
                    "sh", "-c", 'cap="$1"; shift; curl "$@" | head -c "$cap"', "sh",
                    String(capBytes + 1),
-                   "-fsSL", "--max-time", String(innerSec)]
+                   "-fsS", "--proto", "=https", "--max-time", String(innerSec)]
     if (extraArgs) command = command.concat(extraArgs)
     return command.concat(["--", String(url)])
   }

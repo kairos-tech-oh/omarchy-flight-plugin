@@ -151,6 +151,13 @@ location nor any other data is sent anywhere besides these three services and
 adsb.fi — the plugin has no telemetry, analytics, or third-party tracking of
 its own.
 
+Those four origins are also the whole of what the plugin is able to contact:
+every request is checked against a hardcoded allowlist of them before it is
+built, only `https` is permitted, and redirects are not followed, so a 3xx from
+any of these services cannot move the request to another host or to a local
+address. A request that is refused fails the same way being offline does — the
+panel keeps showing the last data it had.
+
 ## Install
 
 ```sh
