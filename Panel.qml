@@ -69,6 +69,18 @@ Panel {
   readonly property int trackedFlightCapBytes: 65536
   readonly property int routeCapBytes: 65536
 
+  // Element ceilings, the collection-count counterpart to the byte ceilings
+  // above: 1 MiB of "{\"hex\":\"x\"}" is still tens of thousands of objects, and
+  // each aircraft becomes a retained parse result, a sort element and a
+  // multi-Text delegate in the eager Repeater inside the long-lived shell, so a
+  // hostile reply that stays under the byte cap can still freeze the UI while
+  // the model builds. adsb.fi returned ~1000-1500 aircraft at the 250 nm
+  // maximum over New York, so 2000 never truncates a legitimate scan; Nominatim
+  // is asked for limit=5 and a genuine reply cannot exceed a handful, so 25 is
+  // ample headroom on the city list.
+  readonly property int maxAircraft: 2000
+  readonly property int maxCityResults: 25
+
   // The four origins this plugin is allowed to talk to -- the same four the
   // README names. Every URL built below is a literal with only numbers or an
   // A-Z0-9 callsign spliced into it, so nothing here is chosen by a response
@@ -482,6 +494,10 @@ Panel {
   function parseAircraftList(raw) {
     var response = root.parseCappedJson(raw, root.flightsCapBytes)
     var list = response.ac || []
+    // Clamp the element count ahead of the parse/sort, the same way the byte
+    // ceilings clamp the response ahead of JSON.parse -- a reply that stays
+    // under flightsCapBytes can still carry far more entries than any real scan.
+    if (list.length > root.maxAircraft) list = list.slice(0, root.maxAircraft)
     var result = []
     for (var i = 0; i < list.length; i++) result.push(parseAircraft(list[i]))
     result.sort(function(a, b) {
@@ -619,7 +635,7 @@ Panel {
     if (!isFinite(nextLatitude) || !isFinite(nextLongitude)) return
     root.latitude = nextLatitude
     root.longitude = nextLongitude
-    root.locationLabel = result.display_name || "Selected city"
+    root.locationLabel = root.sanitizeText(result.display_name, 120) || "Selected city"
     root.locationReady = true
     root.manualOverride = true
     root.cityResults = []
@@ -706,7 +722,7 @@ Panel {
           if (!location.success || !isFinite(Number(location.latitude)) || !isFinite(Number(location.longitude))) throw new Error("location unavailable")
           root.latitude = Number(location.latitude)
           root.longitude = Number(location.longitude)
-          root.locationLabel = (location.city || "Unknown city") + ", " + (location.country || "Unknown country")
+          root.locationLabel = root.sanitizeText((location.city || "Unknown city") + ", " + (location.country || "Unknown country"), 120)
           root.locationReady = true
           root.fetchFlights()
         } catch (error) {
@@ -755,7 +771,18 @@ Panel {
       onStreamFinished: {
         try {
           var results = root.parseCappedJson(text, root.citySearchCapBytes)
-          root.cityResults = Array.isArray(results) ? results : []
+          var list = Array.isArray(results) ? results : []
+          if (list.length > root.maxCityResults) list = list.slice(0, root.maxCityResults)
+          // Keep only a sanitised shape: display_name is free text from
+          // Nominatim and every other field here is discarded, so nothing raw
+          // is carried past the parse layer (selectCity reads lat/lon/display_name).
+          root.cityResults = list.map(function(entry) {
+            return {
+              display_name: root.sanitizeText(entry.display_name, 120),
+              lat: entry.lat,
+              lon: entry.lon
+            }
+          })
           root.hasError = false
         } catch (error) {
           root.cityResults = []
