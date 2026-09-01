@@ -23,7 +23,7 @@ account, or API key required — just a live internet connection.
   ignoring the search radius, and shows a progress bar of how far along that
   flight is between its departure and arrival airports
 - Location is detected automatically via IP geolocation, or you can search
-  and pin any city manually
+  and pin any city manually — a pinned city is remembered across restarts
 - Self-limits requests to stay within adsb.fi's public rate limit
 
 ## Use
@@ -35,7 +35,7 @@ Left-click the bar widget to open the panel.
 | **↻ Reload** | Fetch aircraft data now |
 | **⚙ Settings** | Show/hide the settings section (see below) |
 | **⌕ Search** | Look up a city by name and pin your location to it |
-| **⌖ Use current** | Switch back to automatic IP-based location |
+| **⌖ Use current** | Forget the pinned city and go back to IP-based location |
 | **✈ Track** | Follow the callsign typed in the box next to it |
 | **Click an aircraft** | Track that aircraft, without typing its callsign |
 | **✕ Stop tracking** | Return to the nearby-aircraft display |
@@ -99,6 +99,11 @@ the tracked callsign is stored alongside it. Because there is no free-text field
 type in the bar settings schema, the callsign is entered from the widget's own
 panel rather than from the shell's settings UI.
 
+A city pinned with **⌕ Search** is saved alongside the other settings, so the
+widget comes back to it after a shell restart instead of re-running IP
+geolocation; while a city is pinned, no IP lookup is made at all. **⌖ Use
+current** forgets it and hands location back to IP geolocation.
+
 **Aircraft selection** and **Bar display** apply instantly — they only
 re-pick from aircraft data already sitting in memory, so there's no extra
 API call. **Search radius** and **Refresh interval** apply on the *next*
@@ -146,7 +151,8 @@ tooltip render text with Qt's default `AutoText` — a format that interprets HT
 which this plugin cannot switch off from outside.
 
 Location is resolved via `https://ipwho.is/` (automatic) or
-`https://nominatim.openstreetmap.org/` (manual city search). Neither your
+`https://nominatim.openstreetmap.org/` (manual city search); while a city is
+pinned, `https://ipwho.is/` is not contacted at all. Neither your
 location nor any other data is sent anywhere besides these three services and
 adsb.fi — the plugin has no telemetry, analytics, or third-party tracking of
 its own.
