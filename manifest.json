@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "kairos.flight-tracker",
   "name": "Flight Tracker",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "author": "kairos",
   "license": "MIT",
   "description": "Shows nearby aircraft, or tracks one flight's progress between its airports, using free ADS-B data",
@@ -21,7 +21,10 @@
       "radiusNm": 25,
       "displayMode": "nearest",
       "selectionCriterion": "closest",
-      "trackCallsign": ""
+      "trackCallsign": "",
+      "customLatitude": "",
+      "customLongitude": "",
+      "customLocationLabel": ""
     },
     "schema": [
       {

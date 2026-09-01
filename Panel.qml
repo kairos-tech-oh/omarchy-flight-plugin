@@ -109,6 +109,17 @@ Panel {
   readonly property string trackCallsign: root.normalizeCallsign(setting("trackCallsign", ""))
   readonly property bool tracking: root.displayMode === "track" && root.trackCallsign !== ""
 
+  // The pinned location, mirrored into the shell's config store so it outlives
+  // a restart instead of the panel dropping back to the IP guess every time.
+  // Read back through bindings rather than copied once at startup: the widget
+  // injects `settings` asynchronously, so at Component.onCompleted these can
+  // still be empty, and a binding also picks up a location pinned from another
+  // instance of the panel or written straight into shell.json.
+  readonly property real savedLatitude: root.numberOrNaN(setting("customLatitude", ""))
+  readonly property real savedLongitude: root.numberOrNaN(setting("customLongitude", ""))
+  readonly property string savedLocationLabel: root.sanitizeText(setting("customLocationLabel", ""), 120)
+  readonly property bool hasSavedLocation: root.validCoordinates(root.savedLatitude, root.savedLongitude)
+
   // Route data is only ever read back through this, so a route left over from
   // the previously tracked callsign can never be drawn against the current one.
   readonly property var activeRoute: (root.trackedRoute && root.routeForCallsign === root.trackCallsign)
@@ -204,6 +215,15 @@ Panel {
     if (value === null || value === undefined || value === "") return NaN
     var parsed = Number(value)
     return isFinite(parsed) ? parsed : NaN
+  }
+
+  // A pinned location round-trips through shell.json, where it can be edited by
+  // hand, so it is range-checked on the way back in rather than trusted. An
+  // out-of-range pair would otherwise build a scan URL no endpoint answers, and
+  // the panel would sit on "Waiting for data" with nothing saying why.
+  function validCoordinates(lat, lon) {
+    return isFinite(lat) && isFinite(lon)
+        && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
   }
 
   function parseAircraft(raw) {
@@ -614,7 +634,7 @@ Panel {
   }
 
   function fetchLocation() {
-    if (root.manualOverride || locationProcess.running) return
+    if (root.manualOverride || root.hasSavedLocation || locationProcess.running) return
     locationProcess.running = true
   }
 
@@ -632,23 +652,60 @@ Panel {
   function selectCity(result) {
     var nextLatitude = Number(result.lat)
     var nextLongitude = Number(result.lon)
-    if (!isFinite(nextLatitude) || !isFinite(nextLongitude)) return
+    if (!root.validCoordinates(nextLatitude, nextLongitude)) return
+    var label = root.sanitizeText(result.display_name, 120) || "Selected city"
     root.latitude = nextLatitude
     root.longitude = nextLongitude
-    root.locationLabel = root.sanitizeText(result.display_name, 120) || "Selected city"
+    root.locationLabel = label
     root.locationReady = true
     root.manualOverride = true
     root.cityResults = []
     root.searchingCity = false
     root.cityInput = ""
     root.loading = false
+    root.updateSettings({
+      customLatitude: nextLatitude,
+      customLongitude: nextLongitude,
+      customLocationLabel: label
+    })
     root.fetchFlights()
   }
 
+  // Restores the pinned location. Runs at startup and again whenever the saved
+  // values change, which is how a pin made before the widget had injected
+  // `settings` still reaches the panel. Re-applying coordinates that are
+  // already on screen deliberately stops short of a second scan: selectCity()
+  // persists what it has just applied, and without this guard every pin would
+  // cost two requests against adsb.fi instead of one.
+  function applySavedLocation() {
+    if (!root.hasSavedLocation) return
+    var alreadyShown = root.manualOverride
+        && root.latitude === root.savedLatitude
+        && root.longitude === root.savedLongitude
+    root.locationLabel = root.savedLocationLabel || "Pinned location"
+    root.manualOverride = true
+    root.locationReady = true
+    if (alreadyShown) return
+    root.latitude = root.savedLatitude
+    root.longitude = root.savedLongitude
+    root.loading = false
+    root.fetchFlights()
+  }
+
+  onSavedLatitudeChanged: root.applySavedLocation()
+  onSavedLongitudeChanged: root.applySavedLocation()
+  onSavedLocationLabelChanged: root.applySavedLocation()
+
+  Component.onCompleted: root.applySavedLocation()
+
+  // Clearing the persisted keys is most of what this button now does: leaving
+  // them in place would restore, on the next restart, the very city the user
+  // has just stepped away from.
   function useCurrentLocation() {
     root.manualOverride = false
     root.locationReady = false
     root.loading = false
+    root.updateSettings({ customLatitude: "", customLongitude: "", customLocationLabel: "" })
     root.fetchLocation()
   }
 
@@ -717,6 +774,10 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        // A pinned location can land while this request is in flight: the
+        // startup lookup goes out before the widget has necessarily injected
+        // `settings`, and the user's own choice outranks the IP guess.
+        if (root.manualOverride) return
         try {
           var location = root.parseCappedJson(text, root.locationCapBytes)
           if (!location.success || !isFinite(Number(location.latitude)) || !isFinite(Number(location.longitude))) throw new Error("location unavailable")
@@ -1277,7 +1338,7 @@ Panel {
             Text {
               textFormat: Text.PlainText
               width: parent.width
-              text: root.locationLabel + (root.manualOverride ? "" : " (IP approx.)")
+              text: root.locationLabel + (root.manualOverride ? " (pinned)" : " (IP approx.)")
               color: root.bar.foreground
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.body
