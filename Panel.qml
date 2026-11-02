@@ -201,8 +201,8 @@ Panel {
   }
 
   function setCenterHoverRevealSuppressed(value) {
-    if (root.bar && "centerHoverRevealSuppressed" in root.bar)
-      root.bar.centerHoverRevealSuppressed = value
+    if (root.bar && typeof root.bar.setCenterHoverRevealSuppressed === "function")
+      root.bar.setCenterHoverRevealSuppressed(value)
   }
 
   // Number(null) is 0 and isFinite(null) is true, so a JSON null in a numeric
@@ -1554,7 +1554,7 @@ Panel {
                     color: root.bar.foreground
 
                     Behavior on width {
-                      NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
+                      NumberAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic }
                     }
                   }
                 }

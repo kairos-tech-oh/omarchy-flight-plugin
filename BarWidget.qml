@@ -123,7 +123,7 @@ BarWidget {
           color: progressButton.foreground
 
           Behavior on width {
-            NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic }
           }
         }
       }
