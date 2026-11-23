@@ -202,13 +202,26 @@ or daemons are required.
 
 ## Development
 
-The three files that make up this plugin:
+The files that make up this plugin:
 
 | File | Purpose |
 | --- | --- |
 | `manifest.json` | Plugin metadata and the settings schema |
 | `BarWidget.qml` | Thin bar-bound button; forwards `bar`/`settings` into the panel |
-| `Panel.qml` | All logic: fetching, parsing, aircraft selection, route/progress maths, and the popup UI |
+| `Panel.qml` | Fetching, scheduling, settings, and the popup UI |
+| `FlightLogic.js` | Pure logic: endpoint allowlist, curl command, response parsing and sanitising, aircraft selection, route/progress maths |
+
+`tools/run-checks.sh` runs every check:
+
+- `tools/check-logic.js` unit-tests `FlightLogic.js` under Node: the allowlist (including
+  lookalike hosts and embedded URLs), callsign path-traversal stripping, markup removal,
+  missing fields staying unknown rather than zero, great-circle distance against JFK-LHR,
+  route progress bounds, the curl command's cap/deadline/no-redirect flags, and selection.
+- `tools/check-qml-engine.qml` runs the same library under Qt's V4 engine, which is what
+  omarchy-shell uses. It reports through its exit code: 0 is a pass, anything else names
+  the failing check.
+- `tools/check-conventions.sh` fails on an unqualified `Color`, a bare animation duration,
+  or a dynamic `Text` without `textFormat`.
 
 Changes inside an installed plugin directory normally hot-reload. Restart
 the shell if a QML component remains cached:
