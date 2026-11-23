@@ -16,7 +16,8 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
 
-mapfile -t files < <(find . -name .git -prune -o -name '*.qml' -print | sort)
+shopt -s globstar nullglob
+files=(**/*.qml)
 [ "${#files[@]}" -gt 0 ] || { echo "  no QML files"; exit 0; }
 
 out=""
